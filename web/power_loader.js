@@ -317,7 +317,7 @@ app.registerExtension({
             name: i18n.shift_key_to,
             type: "combo",
             options: ["Hide Overlay", "Show Overlay"],
-            defaultValue: i18n.hide_overlay,
+            defaultValue: "Hide Overlay",
             onChange: (value) => { shiftBehavior = (value === "Hide Overlay") ? true : false }
         });
         
@@ -336,7 +336,7 @@ app.registerExtension({
             name: i18n.hover_behavior,
             type: "combo",
             options: ["No Action", "Navigate to Node", "Show Full Workflow"],
-            defaultValue: i18n.hover_navt,
+            defaultValue: "No Action",
             onChange: (value) => { onHover = value }
         });
         
@@ -373,7 +373,7 @@ app.registerExtension({
             name: i18n.pos,
             type: "combo",
             options: ["Top", "Center", "Bottom"],
-            defaultValue: i18n.pos_bottom,
+            defaultValue: "Bottom",
             onChange: (value) => {
                 overlayPosition = value;
                 calcTop();
