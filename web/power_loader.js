@@ -336,7 +336,7 @@ app.registerExtension({
             name: i18n.hover_behavior,
             type: "combo",
             options: ["No Action", "Navigate to Node", "Show Full Workflow"],
-            defaultValue: "No Action",
+            defaultValue: "Navigate to Node",
             onChange: (value) => { onHover = value }
         });
         
