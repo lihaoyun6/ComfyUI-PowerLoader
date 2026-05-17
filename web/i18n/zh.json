@@ -1,13 +1,14 @@
 {
     "general": "常规",
+    "highlight": "节点高亮",
     "hotkey": "快捷键",
     "overlay": "加载器",
     "enable": "启用 PowerLoader",
     "shift_key_to": "按住 Shift 键时",
     "pos": "加载器位置",
-    "height": "加载器高度 (%)",
-    "offset": "位置偏移量 (px)",
-    "tooltip_offset": "加载器位于\"居中\"位置时此选项无效.",
-    "hover_behavior": "悬停行为",
-    "hover_anim": "导航动画"
+    "height": "加载器大小 (百分比)",
+    "offset": "位置偏移量 (像素)",
+    "hover_behavior": "高亮模式",
+    "hover_anim": "动画效果",
+    "hover_dura": "持续时长 (毫秒)"
 }

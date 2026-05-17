@@ -4,16 +4,17 @@ import { api } from "../../scripts/api.js";
 let i18n = {};
 let baseI18n = {
     general: "General",
-    hotkey: "Hotkey",
+    highlight: "Highlight",
+    hotkey: "Shortcuts",
     overlay: "Overlay",
     enable: "Enable PowerLoader",
     shift_key_to: "Hold Shift Key to",
     pos: "Overlay Position",
-    height: "Overlay Height (%)",
+    height: "Overlay Size (%)",
     offset: "Overlay Offset (px)",
-    tooltip_offset: "No effect when position is set to \"Center\"",
-    hover_behavior: "On Hover",
-    hover_anim: "Navigate Animation",
+    hover_behavior: "Highlight Method",
+    hover_anim: "Animation",
+    hover_dura: "Duration (ms)",
 };
 
 const overlay = document.createElement("div");
@@ -31,8 +32,7 @@ overlay.style.cssText = `
     box-sizing: border-box;
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
-    border-top: 2px solid #8A8A8A;
-    border-bottom: 2px solid #8A8A8A;
+    border: 1px solid #8A8A8A;
     box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
     transition: opacity 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
 `;
@@ -41,6 +41,7 @@ document.body.appendChild(overlay);
 let targetNodes = [];
 let isShowing = false;
 let isTargetZone = false;
+let panAnimationId = null;
 let lastNavigatedNode = null;
 let initialCanvasState = null;
 let enableOverlay = app.ui.settings.getSettingValue("PowerLoader.EnableOverlay", true);
@@ -48,10 +49,9 @@ let shiftBehavior = app.ui.settings.getSettingValue("ShiftBehavior", true);
 let overlayHeight = app.ui.settings.getSettingValue("PowerLoader.OverlayHeight", 40);
 let overlayPosition = app.ui.settings.getSettingValue("PowerLoader.OverlayPosition", "Bottom");
 let overlayOffset = app.ui.settings.getSettingValue("PowerLoader.OverlayOffset", 0);
-let onHover = app.ui.settings.getSettingValue("PowerLoader.OnHover", "Navigate to Node");
+let highlightMethod = app.ui.settings.getSettingValue("PowerLoader.HighlightMethod", "Spotlight+");
 let animation = app.ui.settings.getSettingValue("PowerLoader.Animation", true);
-//let duration = app.ui.settings.getSettingValue("PowerLoader.Duration", 100);
-let duration = 150;
+let duration = app.ui.settings.getSettingValue("PowerLoader.Duration", 150);
 
 async function loadI18n() {
     const comfyLang = app.ui.settings.getSettingValue("Comfy.Locale", "en");
@@ -82,6 +82,31 @@ function generateUUID() {
         const v = c === "x" ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
+}
+
+function smoothPanTo(targetX, targetY, duration) {
+    if (panAnimationId) cancelAnimationFrame(panAnimationId);
+    
+    const ds = app.canvas.ds;
+    const startX = ds.offset[0];
+    const startY = ds.offset[1];
+    const startTime = performance.now();
+    
+    function animate(time) {
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        
+        ds.offset[0] = startX + (targetX - startX) * ease;
+        ds.offset[1] = startY + (targetY - startY) * ease;
+        
+        app.canvas.setDirty(true, true);
+        
+        if (progress < 1) {
+            panAnimationId = requestAnimationFrame(animate);
+        }
+    }
+    panAnimationId = requestAnimationFrame(animate);
 }
 
 function updateLayout(nodes) {
@@ -155,7 +180,7 @@ function updateLayout(nodes) {
             </div>
             <div style="
                 font-size: 1rem; font-weight: bold; text-align: center;
-                width: 90%; white-space: nowrap; overflow: hidden;
+                width: 90%; overflow: hidden;
                 word-break: break-word;
                 line-height: 1.3;
                 display: -webkit-box;
@@ -200,7 +225,7 @@ function hideOverlay(e, t = false) {
         setTimeout(() => { if (!isShowing) overlay.style.display = "none"; }, 300);
     }
     
-    if (onHover !== "No Action" && initialCanvasState) {
+    if (highlightMethod !== "No Action" && initialCanvasState) {
         app.canvas.ds.offset[0] = initialCanvasState.offset[0];
         app.canvas.ds.offset[1] = initialCanvasState.offset[1];
         app.canvas.ds.scale = initialCanvasState.scale;
@@ -286,14 +311,30 @@ async function uploadVideoToVHS(node, file) {
 }
 
 function calcTop() {
-    overlay.style.height = overlayHeight + "vh";
-    
     if (overlayPosition === "Top") {
+        overlay.style.flexDirection = "row";
+        overlay.style.height = overlayHeight + "vh";
+        overlay.style.width = "100vw";
+        overlay.style.left = "0";
         overlay.style.top = overlayOffset + "px";
-    } else if (overlayPosition === "Center") {
-        overlay.style.top = ((100 - overlayHeight) / 2) + "vh";
-    } else {
+    } else if (overlayPosition === "Bottom") {
+        overlay.style.flexDirection = "row";
+        overlay.style.height = overlayHeight + "vh";
+        overlay.style.width = "100vw";
+        overlay.style.left = "0";
         overlay.style.top = `calc(${100 - overlayHeight}vh - ${overlayOffset}px)`;
+    } else if (overlayPosition === "Left") {
+        overlay.style.flexDirection = "column";
+        overlay.style.height = "100vh";
+        overlay.style.width = overlayHeight + "vw";
+        overlay.style.left = overlayOffset + "px";
+        overlay.style.top = "0";
+    } else if (overlayPosition === "Right") {
+        overlay.style.flexDirection = "column";
+        overlay.style.height = "100vh";
+        overlay.style.width = overlayHeight + "vw";
+        overlay.style.left = `calc(${100 - overlayHeight}vw - ${overlayOffset}px)`;
+        overlay.style.top = "0";
     }
 }
 
@@ -322,8 +363,18 @@ app.registerExtension({
         });
         
         app.ui.settings.addSetting({
+            id: "PowerLoader.Duration",
+            category: ["PowerLoader", i18n.highlight, i18n.hover_dura],
+            name: i18n.hover_dura,
+            type: "slider",
+            defaultValue: 150,
+            attrs: { min: 50, max: 300, step: 50 },
+            onChange: (value) => { duration = value }
+        });
+        
+        app.ui.settings.addSetting({
             id: "PowerLoader.Animation",
-            category: ["PowerLoader", i18n.overlay, i18n.hover_anim],
+            category: ["PowerLoader", i18n.highlight, i18n.hover_anim],
             name: i18n.hover_anim,
             type: "boolean",
             defaultValue: true,
@@ -331,13 +382,13 @@ app.registerExtension({
         });
         
         app.ui.settings.addSetting({
-            id: "PowerLoader.OnHover",
-            category: ["PowerLoader", i18n.overlay, i18n.hover_behavior],
+            id: "PowerLoader.HighlightMethod",
+            category: ["PowerLoader", i18n.highlight, i18n.hover_behavior],
             name: i18n.hover_behavior,
             type: "combo",
-            options: ["No Action", "Navigate to Node", "Show Full Workflow"],
-            defaultValue: "Navigate to Node",
-            onChange: (value) => { onHover = value }
+            options: ["None", "WideView", "Spotlight", "Spotlight+"],
+            defaultValue: "Spotlight+",
+            onChange: (value) => { highlightMethod = value }
         });
         
         app.ui.settings.addSetting({
@@ -347,7 +398,6 @@ app.registerExtension({
             type: "slider",
             defaultValue: 0,
             attrs: { min: 0, max: 720, step: 1 },
-            tooltip: i18n.tooltip_offset,
             onChange: (value) => {
                 overlayOffset = value;
                 calcTop();
@@ -372,13 +422,16 @@ app.registerExtension({
             category: ["PowerLoader", i18n.overlay, i18n.pos],
             name: i18n.pos,
             type: "combo",
-            options: ["Top", "Center", "Bottom"],
+            options: ["Top", "Bottom", "Left", "Right"],
             defaultValue: "Bottom",
             onChange: (value) => {
                 overlayPosition = value;
                 calcTop();
             }
         });
+        
+        const oldPosition = app.ui.settings.getSettingValue("PowerLoader.OverlayPosition", "Bottom");
+        if (oldPosition === "Center") overlayPosition = "Bottom";
     },
     
     async setup() {
@@ -400,7 +453,7 @@ app.registerExtension({
             ];
             const nodes = app.graph._nodes.filter(node => targetTypes.includes(node.type));
             
-            if (nodes.length > 0 && !isShowing) {
+            if (nodes.length > 0 && !isShowing && initialCanvasState === null) {
                 initialCanvasState = {offset: [...app.canvas.ds.offset], scale: app.canvas.ds.scale};
                 updateLayout(nodes);
             }
@@ -410,14 +463,18 @@ app.registerExtension({
             if (!isShowing || !enableOverlay) return;
             
             const vh = window.innerHeight;
+            const vw = window.innerWidth;
             const y = e.clientY;
+            const x = e.clientX;
             
-            if (overlayPosition === "Center") {
-                isTargetZone = y > (vh * (100-overlayHeight)/200) && y < (vh * (100+overlayHeight)/200);
-            } else if (overlayPosition === "Top") {
+            if (overlayPosition === "Top") {
                 isTargetZone = y > (overlayOffset) && y < (vh * overlayHeight/100 + overlayOffset);
-            } else {
+            } else if (overlayPosition === "Bottom") {
                 isTargetZone = y > (vh * (100-overlayHeight)/100 - overlayOffset) && y < (vh - overlayOffset);
+            } else if (overlayPosition === "Left") {
+                isTargetZone = x > (overlayOffset) && x < (vw * overlayHeight/100 + overlayOffset);
+            } else if (overlayPosition === "Right") {
+                isTargetZone = x > (vw * (100-overlayHeight)/100 - overlayOffset) && x < (vw - overlayOffset);
             }
             
             calcTop();
@@ -448,19 +505,11 @@ app.registerExtension({
                     }
                 });
                 
-                if (onHover !== "No Action" && currentHoveredNode && currentHoveredNode !== lastNavigatedNode) {
+                if (highlightMethod !== "None" && currentHoveredNode && currentHoveredNode !== lastNavigatedNode) {
                     lastNavigatedNode = currentHoveredNode;
                     app.canvas.deselectAllNodes();
-                    app.canvas.selectNode(currentHoveredNode);
                     
-                    if (onHover === "Navigate to Node") {
-                        app.canvas.selectNode(currentHoveredNode);
-                        if (animation) {
-                            app.canvas.fitViewToSelectionAnimated({duration: duration, padding: 0});
-                        } else {
-                            app.canvas.centerOnNode(currentHoveredNode);
-                        }
-                    } else {
+                    if (highlightMethod === "WideView") {
                         app.canvas.selectItems();
                         if (animation) {
                             app.canvas.fitViewToSelectionAnimated({duration: duration, padding: 0});
@@ -468,6 +517,33 @@ app.registerExtension({
                             app.canvas.fitViewToSelectionAnimated({duration: 1, padding: 0});
                         }
                         app.canvas.selectNode(currentHoveredNode);
+                    } else if (highlightMethod === "Spotlight") {
+                        app.canvas.selectNode(currentHoveredNode);
+                        if (animation) {
+                            app.canvas.fitViewToSelectionAnimated({duration: duration, padding: 0});
+                        } else {
+                            app.canvas.centerOnNode(currentHoveredNode);
+                        }
+                    } else if (highlightMethod === "Spotlight+") {
+                        app.canvas.selectNode(currentHoveredNode);
+                        if (animation) {
+                            const originalX = app.canvas.ds.offset[0];
+                            const originalY = app.canvas.ds.offset[1];
+                            
+                            app.canvas.centerOnNode(currentHoveredNode);
+                            app.canvas.ds.scale = initialCanvasState.scale;
+                            
+                            const perfectTargetX = app.canvas.ds.offset[0];
+                            const perfectTargetY = app.canvas.ds.offset[1];
+                            
+                            app.canvas.ds.offset[0] = originalX;
+                            app.canvas.ds.offset[1] = originalY;
+                            
+                            smoothPanTo(perfectTargetX, perfectTargetY, duration);
+                        } else {
+                            app.canvas.centerOnNode(currentHoveredNode);
+                            app.canvas.ds.scale = initialCanvasState.scale;
+                        }
                     }
                     app.canvas.setDirty(true, true);
                 }
