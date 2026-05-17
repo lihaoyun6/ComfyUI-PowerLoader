@@ -1,0 +1,13 @@
+{
+    "general": "常规",
+    "hotkey": "快捷键",
+    "overlay": "加载器",
+    "enable": "启用 PowerLoader",
+    "shift_key_to": "按住 Shift 键时",
+    "pos": "加载器位置",
+    "height": "加载器高度 (%)",
+    "offset": "位置偏移量 (px)",
+    "tooltip_offset": "加载器位于\"居中\"位置时此选项无效.",
+    "hover_behavior": "悬停行为",
+    "hover_anim": "导航动画"
+}
