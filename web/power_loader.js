@@ -127,7 +127,11 @@ function updateLayout(nodes) {
         const nodeId = node.id;
         const nodeTitle = node.title || `@${node.comfyClass || node.type}`;
         const comfyClass = (node.comfyClass || node.type || "").toLowerCase();
-        const nodeIcon = comfyClass.includes("video") ? "🎞️" : comfyClass.includes("image") ? "🖼️" : comfyClass.includes("audio") ? "🎧" : "❓";
+        const nodeIcon = comfyClass.includes("video") ? "🎞️"
+        : comfyClass.includes("image") ? "🖼️"
+        : comfyClass.includes("audio") ? "🎧"
+        : comfyClass.includes("zip") ? "📄"
+        : "❓";
         
         const cell = document.createElement("div");
         cell.className = "drop-cell";
@@ -179,10 +183,10 @@ function updateLayout(nodes) {
                 ${nodeIcon}
             </div>
             <div style="
-                font-size: 1rem; font-weight: bold; text-align: center;
+                font-size: 1rem; font-weight: bold;
+                text-align: center; line-height: 1.3;
                 width: 90%; overflow: hidden;
                 word-break: break-word;
-                line-height: 1.3;
                 display: -webkit-box;
                 -webkit-line-clamp: 3;
                 -webkit-box-orient: vertical;
@@ -249,6 +253,11 @@ async function handleUpload(files, node) {
         await uploadImageBatch(node, files)
         return;
     }
+    
+    if (comfyClass === "LoadZipBatch") {
+        await uploadZip(node, files[0])
+        return;
+    }
 
     const f = files[0];
     if (!f) return;
@@ -258,11 +267,43 @@ async function handleUpload(files, node) {
     
     const body = new FormData();
     body.append("image", f); body.append("overwrite", "true"); body.append("type", "input");
-    const res = await api.fetchApi("/upload/image", { method: "POST", body });
-    if (res.ok) {
-        const d = await res.json();
+    const resp = await api.fetchApi("/upload/image", { method: "POST", body });
+    if (resp.ok) {
+        const data = await resp.json();
         const widget = node.widgets.find(w => ["image", "video", "audio", "file"].includes(w.name));
-        if (widget) { widget.value = d.name; widget.callback?.(d.name); }
+        if (widget) {
+            if (!widget.options.values.includes(data.name)) widget.options.values.push(data.name);
+            widget.value = data.name; widget.callback?.(data.name);
+        }
+    }
+}
+            
+async function uploadZip(node, file) {
+    const isZipExt = file.name.toLowerCase().endsWith(".zip");
+    if (!isZipExt) return;
+    const w = node.widgets || [];
+    const btn = w.find(w => w.type === "button");
+    const originalLabel = btn ? btn.name : "Upload Zip";
+    if (btn) btn.name = "Uploading...";
+    try {
+        const body = new FormData();
+        body.append("image", file); b.append("subfolder", "zip");
+        body.append("overwrite", "true"); b.append("type", "input");
+        const resp = await api.fetchApi("/upload/image", { method: "POST", body: body });
+        if (resp.ok) {
+            const data = await resp.json();
+            const widget = node.widgets.find(w => w.name === "filename");
+            if (widget) {
+                if (widget.options.values.length === 1 && widget.options.values[0] === "None") {
+                    widget.options.values = [];
+                }
+                if (!widget.options.values.includes(data.name)) widget.options.values.unshift(data.name);
+                widget.value = data.name; widget.callback?.(data.name);
+            }
+        }
+    } catch (e) { console.error(e); } finally {
+        if (btn) btn.name = originalLabel;
+        //app.graph.setDirtyCanvas(true, true);
     }
 }
             
@@ -273,6 +314,10 @@ async function uploadImageBatch(node, files) {
     const isAppend = !!w.find(x => x.name === "append")?.value;
     const currentBatch = w.find(x => x.name === "batch")?.value;
     const uuid = (isAppend && currentBatch && currentBatch !== "None") ? currentBatch : generateUUID();
+    const btn = w.find(w => w.type === "button");
+    const originalLabel = btn ? btn.name : "Choose files to upload";
+    if (btn) btn.name = `Uploading ${validFiles.length} files...`;
+    
     try {
         await Promise.all(validFiles.map(file => {
             const b = new FormData();
@@ -285,7 +330,15 @@ async function uploadImageBatch(node, files) {
             if (!bw.options.values.includes(uuid)) bw.options.values.unshift(uuid);
             bw.value = uuid; bw.callback?.(uuid);
         }
-    } catch (e) { console.error(e); }
+        if (btn) btn.name = "Generating Preview...";
+        await api.fetchApi("/batch_preview/gen_batch", {
+            method: "POST",
+            body: JSON.stringify({ batch_folder: uuid }),
+        }).catch(e => console.log("Preview service not found, skipping."));
+    } catch (e) { console.error(e); } finally {
+        if (btn) btn.name = originalLabel;
+        //app.graph.setDirtyCanvas(true, true);
+    }
 }
 
 async function uploadVideoToVHS(node, file) {
@@ -445,6 +498,7 @@ app.registerExtension({
                 "LoadImageMask",
                 "LoadImageOutput",
                 "LoadImageBatch",
+                "LoadZipBatch",
                 "LoadVideo",
                 "LoadAudio",
                 "VHS_LoadVideo",
