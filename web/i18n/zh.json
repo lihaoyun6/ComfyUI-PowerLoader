@@ -10,5 +10,8 @@
     "offset": "位置偏移量 (像素)",
     "hover_behavior": "高亮模式",
     "hover_anim": "动画效果",
-    "hover_dura": "持续时长 (毫秒)"
+    "hover_dura": "持续时长 (毫秒)",
+    "previewer": "实时预览",
+    "previewer_size": "预览浮窗大小 (百分比)",
+    "previewer_pos": "预览浮窗位置"
 }

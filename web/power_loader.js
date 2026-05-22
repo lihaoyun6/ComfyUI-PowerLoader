@@ -5,7 +5,7 @@ let i18n = {};
 let baseI18n = {
     general: "General",
     highlight: "Highlight",
-    hotkey: "Shortcuts",
+    hotkey: "Hotkey",
     overlay: "Overlay",
     enable: "Enable PowerLoader",
     shift_key_to: "Hold Shift Key to",
@@ -15,6 +15,9 @@ let baseI18n = {
     hover_behavior: "Highlight Method",
     hover_anim: "Animation",
     hover_dura: "Duration (ms)",
+    previewer: "Previewer",
+    previewer_size: "Preview Size (%)",
+    previewer_pos: "Preview Position",
 };
 
 const overlay = document.createElement("div");
@@ -52,6 +55,9 @@ let overlayOffset = app.ui.settings.getSettingValue("PowerLoader.OverlayOffset",
 let highlightMethod = app.ui.settings.getSettingValue("PowerLoader.HighlightMethod", "Spotlight+");
 let animation = app.ui.settings.getSettingValue("PowerLoader.Animation", true);
 let duration = app.ui.settings.getSettingValue("PowerLoader.Duration", 150);
+let previeweSize = app.ui.settings.getSettingValue("PowerLoader.Previewer.Size", 50);
+let previewePos = app.ui.settings.getSettingValue("PowerLoader.Previewer.Position", "Bottom Left");
+let enablePreviewer = app.ui.settings.getSettingValue("PowerLoader.Previewer.EnablePreviewer", true);
 
 async function loadI18n() {
     const comfyLang = app.ui.settings.getSettingValue("Comfy.Locale", "en");
@@ -637,3 +643,162 @@ app.registerExtension({
         }, true);
     }
 });
+
+app.registerExtension({
+    name: "ComfyUI.PowerLoader.Previewer",
+    setup() {
+        const container = document.createElement("div");
+        container.id = "custom-preview-container";
+        Object.assign(container.style, {
+            position: "fixed",
+            zIndex: "9999",
+            display: "none",
+            pointerEvents: "none",
+            transition: "opacity 0.2s ease-in-out",
+            opacity: "0",
+            width: "fit-content",
+            height: "fit-content" 
+        });
+        
+        const img = document.createElement("img");
+        Object.assign(img.style, {
+            objectFit: "contain",
+            boxShadow: "0 4px 15px rgba(0, 0, 0, 0.5)",
+            borderRadius: "10px",
+            border: "2px solid rgba(255, 255, 255, 0.1)",
+            display: "block",
+            backgroundColor: "rgba(0, 0, 0, 0.3)"
+        });
+        
+        const label = document.createElement("div");
+        label.innerText = "PowerLoader Previewer";
+        Object.assign(label.style, {
+            position: "absolute",
+            top: "8px", right: "8px",
+            backgroundColor: "rgba(0, 0, 0, 0.65)",
+            color: "#ffffff",
+            padding: "4px 8px",
+            fontSize: "12px",
+            fontFamily: "Arial, sans-serif",
+            fontWeight: "bold",
+            borderRadius: "5px",
+            textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+            zIndex: "10",
+            opacity: "0.8"
+        });
+        
+        container.appendChild(img);
+        container.appendChild(label); 
+        document.body.appendChild(container);
+        
+        function updateStyle() {
+            const sidebar = app.ui.settings.getSettingValue("Comfy.Sidebar.Location", "left");
+            
+            img.style.height = `calc((100vh - 120px) * ${previeweSize} / 100)`; 
+            img.style.width = "auto";
+            img.style.maxWidth = "90vw";
+            container.style.top = "";
+            container.style.bottom = "";
+            container.style.left = "";
+            container.style.right = "";
+            
+            switch (previewePos) {
+                case "Bottom Left":
+                    container.style.bottom = "20px";
+                    container.style.left = sidebar === "left" ? "70px" : "20px";
+                    break;
+                case "Bottom Right":
+                    container.style.bottom = "20px";
+                    container.style.right = sidebar === "right" ? "70px" : "20px";
+                    break;
+                case "Top Left":
+                    container.style.top = "100px"; 
+                    container.style.left = sidebar === "left" ? "70px" : "20px";
+                    break;
+                case "Top Right":
+                    container.style.top = "100px";
+                    container.style.right = sidebar === "right" ? "70px" : "20px";
+                    break;
+            }
+        };
+        
+        app.ui.settings.addSetting({
+            id: "PowerLoader.Previewer.Size",
+            category: ["PowerLoader", i18n.previewer, i18n.previewer_size],
+            name: i18n.previewer_size,
+            type: "slider",
+            attrs: {min: 10, max: 100, step: 1},
+            defaultValue: 50,
+            onChange: (value) => {
+                previeweSize = value;
+                updateStyle();
+            }
+        });
+        
+        app.ui.settings.addSetting({
+            id: "PowerLoader.Previewer.Position",
+            category: ["PowerLoader", i18n.previewer, i18n.previewer_pos],
+            name: i18n.previewer_pos,
+            type: "combo",
+            options: ["Bottom Left", "Bottom Right", "Top Left", "Top Right"],
+            defaultValue: "Bottom Left",
+            onChange: (value) => {
+                previewePos = value;
+                updateStyle();
+            }
+        });
+        
+        app.ui.settings.addSetting({
+            id: "PowerLoader.Previewer.EnablePreviewer",
+            category: ["PowerLoader", i18n.previewer, i18n.previewer],
+            name: i18n.previewer,
+            type: "boolean",
+            defaultValue: true,
+            onChange: (value) => { enablePreviewer = value }
+        });
+        
+        updateStyle();
+        
+        let currentBlobUrl = null;
+        
+        api.addEventListener("b_preview", (event) => {
+            if (!enablePreviewer) return;
+            const blob = event.detail; 
+            if (blob) {
+                if (currentBlobUrl) {
+                    URL.revokeObjectURL(currentBlobUrl);
+                }
+                currentBlobUrl = URL.createObjectURL(blob);
+                img.src = currentBlobUrl;
+                
+                container.style.display = "block";
+                setTimeout(() => { container.style.opacity = "1"; }, 10); 
+            }
+        });
+        
+        const hidePreview = () => {
+            container.style.opacity = "0";
+            setTimeout(() => {
+                container.style.display = "none";
+                img.src = "";
+                if (currentBlobUrl) {
+                    URL.revokeObjectURL(currentBlobUrl);
+                    currentBlobUrl = null;
+                }
+            }, 200);
+        };
+        
+        api.addEventListener("executing", (event) => {
+            if (!event.detail) {
+                hidePreview();
+            } else {
+                updateStyle();
+            }
+        });
+        
+        api.addEventListener("execution_interrupted", () => {
+            hidePreview();
+        });
+    }
+});
+            
