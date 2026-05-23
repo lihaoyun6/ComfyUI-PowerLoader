@@ -13,5 +13,6 @@
     "hover_dura": "持续时长 (毫秒)",
     "previewer": "实时预览",
     "previewer_size": "预览浮窗大小 (百分比)",
-    "previewer_pos": "预览浮窗位置"
+    "previewer_pos": "预览浮窗位置",
+    "previewer_hover": "鼠标悬停动作"
 }
