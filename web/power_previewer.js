@@ -7,16 +7,22 @@ let baseI18n = {
     previewer_size: "Preview Size (%)",
     previewer_pos: "Preview Position",
     previewer_hover: "On Mouse Hover",
+    previewer_transp: "Transparency (%)",
+    previewer_transp_tip: "For \"See-Through\" mode",
 };
 
 let isDodged = false;
 let originalRect = null;
 let dodgeMouseMoveHandler = null;
 let currentBlobUrl = null;
+let currentNodeId = null;
+let previewingNodeId = null;
+
 let previeweSize = app.ui.settings.getSettingValue("PowerLoader.Previewer.Size");
 let previewePos = app.ui.settings.getSettingValue("PowerLoader.Previewer.Position");
 let enablePreviewer = app.ui.settings.getSettingValue("PowerLoader.Previewer.EnablePreviewer");
 let previewerHover = app.ui.settings.getSettingValue("PowerLoader.Previewer.PreviewerHover");
+let transparency = app.ui.settings.getSettingValue("PowerLoader.Previewer.Transparency");
 
 const container = document.createElement("div");
 container.id = "custom-preview-container";
@@ -111,10 +117,10 @@ function updateStyle() {
     
     if (previewerHover === "Move to Other Side") {
         if (isDodged) pos = pos.includes("Left") ? pos.replace("Left", "Right") : pos.replace("Right", "Left");
-    } else if (previewerHover === "Hide Previewer") {
+    } else if (previewerHover === "See-Through") {
         if (isDodged) {
-            img.style.opacity = "0";
-            labelWrapper.style.opacity = "0";
+            img.style.opacity = `${transparency}`;
+            labelWrapper.style.opacity = `${transparency}`;
             container.style.pointerEvents = "none";
         } else {
             img.style.opacity = "1";
@@ -161,11 +167,22 @@ app.registerExtension({
         await loadI18n();
         
         app.ui.settings.addSetting({
+            id: "PowerLoader.Previewer.Transparency",
+            category: ["PowerLoader", i18n.previewer, i18n.previewer_transp],
+            name: i18n.previewer_transp,
+            type: "slider",
+            attrs: {min: 0, max: 100, step: 10},
+            defaultValue: 20,
+            tooltip: i18n.previewer_transp_tip,
+            onChange: (value) => { transparency = value/100 }
+        });
+        
+        app.ui.settings.addSetting({
             id: "PowerLoader.Previewer.PreviewerHover",
             category: ["PowerLoader", i18n.previewer, i18n.previewer_hover],
             name: i18n.previewer_hover,
             type: "combo",
-            options: ["Do Nothing", "Hide Previewer", "Move to Other Side"],
+            options: ["Do Nothing", "See-Through", "Move to Other Side"],
             defaultValue: "Move to Other Side",
             onChange: (value) => { previewerHover = value }
         });
@@ -227,6 +244,9 @@ app.registerExtension({
         
         api.addEventListener("b_preview", (event) => {
             if (!enablePreviewer) return;
+            
+            previewingNodeId = currentNodeId; 
+
             const blob = event.detail; 
             if (blob) {
                 if (currentBlobUrl) {
@@ -282,15 +302,23 @@ app.registerExtension({
         });
         
         api.addEventListener("executing", (event) => {
-            if (!event.detail) {
+            currentNodeId = event.detail;
+            
+            if (!currentNodeId) {
                 hidePreview();
+                previewingNodeId = null;
             } else {
+                if (previewingNodeId && currentNodeId !== previewingNodeId) {
+                    hidePreview();
+                    previewingNodeId = null;
+                }
                 updateStyle();
             }
         });
         
         api.addEventListener("execution_interrupted", () => {
             hidePreview();
+            previewingNodeId = null;
         });
     }
 });

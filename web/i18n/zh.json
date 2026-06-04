@@ -14,5 +14,7 @@
     "previewer": "实时预览",
     "previewer_size": "预览浮窗大小 (百分比)",
     "previewer_pos": "预览浮窗位置",
-    "previewer_hover": "鼠标悬停动作"
+    "previewer_hover": "鼠标悬停动作",
+    "previewer_transp": "透明度 (%)",
+    "previewer_transp_tip": "作用于\"See-Through\"模式"
 }
