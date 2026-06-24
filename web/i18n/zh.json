@@ -3,7 +3,7 @@
     "highlight": "节点高亮",
     "hotkey": "快捷键",
     "overlay": "加载器",
-    "enable": "启用 PowerLoader",
+    "enable": "启用投放浮窗",
     "shift_key_to": "按住 Shift 键时",
     "pos": "加载器位置",
     "height": "加载器大小 (百分比)",
@@ -16,5 +16,13 @@
     "previewer_pos": "预览浮窗位置",
     "previewer_hover": "鼠标悬停动作",
     "previewer_transp": "透明度 (%)",
-    "previewer_transp_tip": "作用于\"See-Through\"模式"
+    "previewer_transp_tip": "作用于\"See-Through\"模式",
+    "quickpaste": "快速粘贴图片",
+    "quickpaste_tip": "自动重命名剪贴项以加快粘贴速度",
+    "convert_to": "将 HEIC/AVIF 转换为",
+    "upload_failed": "上传失败! ",
+    "upload_success": "上传成功",
+    "upload_avif": "正在上传 AVIF...",
+    "upload_heic": "正在上传 HEIC...",
+    "upload_heif": "正在上传 HEIF..."
 }

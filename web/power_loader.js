@@ -7,7 +7,7 @@ let baseI18n = {
     highlight: "Highlight",
     hotkey: "Hotkey",
     overlay: "Overlay",
-    enable: "Enable PowerLoader",
+    enable: "Enable Overlay",
     shift_key_to: "Hold Shift Key to",
     pos: "Overlay Position",
     height: "Overlay Size (%)",

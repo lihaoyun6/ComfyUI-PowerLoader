@@ -1,7 +1,7 @@
 [project]
 name = "ComfyUI-PowerLoader"
 description = "Upload media files into ComfyUI in a simpler way."
-version = "0.1.7"
+version = "0.1.8"
 license = {file = "LICENSE"} 
  classifiers = [
 #     # For OS-independent nodes (works on all operating systems)
