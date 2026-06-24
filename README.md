@@ -3,8 +3,25 @@ Upload media files into ComfyUI more easily, with added support for HEIF/HEIC/AV
 **[[📃中文版](./README_zh.md)]**
 
 ## Preview
-![](./preview.gif)  
-![](./preview2.gif)
+
+<table>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="./preview.gif">
+      <div>Uploader Overlay</div>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./preview2.gif">
+      <div>HEIC/AVIF Support</div>
+    </td>
+    <td align="center">
+      <img src="./preview3.gif">
+      <div>Live Previewer</div>
+    </td>
+  </tr>
+</table>
 
 ## Installation
 

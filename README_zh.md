@@ -3,8 +3,25 @@
 **[[📃English](./README.md)]**
 
 ## 预览
-![](./preview.gif)  
-![](./preview2.gif) 
+
+<table>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="./preview.gif">
+      <div>Uploader Overlay</div>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./preview2.gif">
+      <div>HEIC/AVIF Support</div>
+    </td>
+    <td align="center">
+      <img src="./preview3.gif">
+      <div>Live Previewer</div>
+    </td>
+  </tr>
+</table>
 
 ## 安装  
 
