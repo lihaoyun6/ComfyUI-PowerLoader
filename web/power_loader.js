@@ -15,6 +15,7 @@ let baseI18n = {
     hover_behavior: "Highlight Method",
     hover_anim: "Animation",
     hover_dura: "Duration (ms)",
+    loadworkflow: "Load Workflow",
 };
 
 const overlay = document.createElement("div");
@@ -111,6 +112,8 @@ function smoothPanTo(targetX, targetY, duration) {
 
 function updateLayout(nodes) {
     overlay.innerHTML = "";
+    
+    // --- 【修改1】排序真实节点，并在最后追加“导入工作流”虚拟节点 ---
     targetNodes = [...nodes].sort((a, b) => {
         const tA = (a.title || a.comfyClass || a.type || "undefined").toLowerCase();
         const tB = (b.title || b.comfyClass || b.type || "undefined").toLowerCase();
@@ -123,16 +126,34 @@ function updateLayout(nodes) {
         });
     });
 
+    // 创建虚拟的工作流节点
+    targetNodes.push({
+        id: "FLOW",
+        isWorkflowLoader: true,
+        title: i18n.loadworkflow,
+        comfyClass: "workflow"
+    });
+    // -----------------------------------------------------------
+
     targetNodes.forEach((node) => {
         const nodeId = node.id;
         const nodeTitle = node.title || `@${node.comfyClass || node.type}`;
         const comfyClass = (node.comfyClass || node.type || "").toLowerCase();
-        const nodeIcon = comfyClass.includes("video") ? "🎞️"
+        
+        // --- 【修改2】增加对虚拟节点的图标和标签支持 ---
+        const nodeIcon = node.isWorkflowLoader ? "📂"
+        : comfyClass.includes("video") ? "🎞️"
         : comfyClass.includes("image") ? "🖼️"
         : comfyClass.includes("audio") ? "🎧"
         : comfyClass.includes("zip") ? "📄"
         : "❓";
         
+        const badgeText = node.isWorkflowLoader ? "APP" : `#${nodeId}`;
+        const badgeColor = node.isWorkflowLoader ? "#2196F3" : "#4CAF50";
+        const badgeBg = node.isWorkflowLoader ? "rgba(33, 150, 243, 0.15)" : "rgba(76, 175, 80, 0.15)";
+        const badgeBorder = node.isWorkflowLoader ? "rgba(33, 150, 243, 0.3)" : "rgba(76, 175, 80, 0.3)";
+        // -----------------------------------------------------------
+
         const cell = document.createElement("div");
         cell.className = "drop-cell";
         cell.style.cssText = `
@@ -158,15 +179,15 @@ function updateLayout(nodes) {
                 position: absolute;
                 top: 8px; right: 8px;
                 padding: 1px 8px;
-                background: rgba(76, 175, 80, 0.15);
-                border: 1px solid rgba(76, 175, 80, 0.3);
+                background: ${badgeBg};
+                border: 1px solid ${badgeBorder};
                 border-radius: 7px;
                 font-size: 0.85rem;
-                color: #4CAF50;
+                color: ${badgeColor};
                 font-family: monospace;
                 pointer-events: none;
                 z-index: 2;">
-            #${nodeId}
+            ${badgeText}
             </div>
             <div class="small-icon" style="
                 position: absolute;
@@ -287,8 +308,8 @@ async function uploadZip(node, file) {
     if (btn) btn.name = "Uploading...";
     try {
         const body = new FormData();
-        body.append("image", file); b.append("subfolder", "zip");
-        body.append("overwrite", "true"); b.append("type", "input");
+        body.append("image", file); body.append("subfolder", "zip");
+        body.append("overwrite", "true"); body.append("type", "input");
         const resp = await api.fetchApi("/upload/image", { method: "POST", body: body });
         if (resp.ok) {
             const data = await resp.json();
@@ -507,10 +528,12 @@ app.registerExtension({
             ];
             const nodes = app.graph._nodes.filter(node => targetTypes.includes(node.type));
             
-            if (nodes.length > 0 && !isShowing && initialCanvasState === null) {
+            // --- 【修改3】移除了 nodes.length > 0 的限制，确保有虚拟节点时也触发 ---
+            if (!isShowing && initialCanvasState === null) {
                 initialCanvasState = {offset: [...app.canvas.ds.offset], scale: app.canvas.ds.scale};
                 updateLayout(nodes);
             }
+            // -----------------------------------------------------------
         }, true);
 
         window.addEventListener("dragover", (e) => {
@@ -546,8 +569,10 @@ app.registerExtension({
                     const r = cell.getBoundingClientRect();
                     const isHover = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
                     if (isHover) {
-                        cell.style.borderColor = "#4CAF50";
-                        cell.style.background = "rgba(76, 175, 80, 0.25)";
+                        // --- 【修改4】区分虚拟工作流节点悬停颜色 ---
+                        const isFlow = targetNodes[idx].isWorkflowLoader;
+                        cell.style.borderColor = isFlow ? "#2196F3" : "#4CAF50";
+                        cell.style.background = isFlow ? "rgba(33, 150, 243, 0.25)" : "rgba(76, 175, 80, 0.25)";
                         cell.style.transform = "translateY(-5px)";
                         cell.style.boxShadow = "0 10px 20px rgba(0,0,0,0.3)";
                         currentHoveredNode = targetNodes[idx];
@@ -563,43 +588,58 @@ app.registerExtension({
                     lastNavigatedNode = currentHoveredNode;
                     app.canvas.deselectAllNodes();
                     
-                    if (highlightMethod === "WideView") {
-                        app.canvas.selectItems();
-                        if (animation) {
-                            app.canvas.fitViewToSelectionAnimated({duration: duration, padding: 0});
-                        } else {
-                            app.canvas.fitViewToSelectionAnimated({duration: 1, padding: 0});
-                        }
-                        app.canvas.selectNode(currentHoveredNode);
-                    } else if (highlightMethod === "Spotlight") {
-                        app.canvas.selectNode(currentHoveredNode);
-                        if (animation) {
-                            app.canvas.fitViewToSelectionAnimated({duration: duration, padding: 0});
-                        } else {
-                            app.canvas.centerOnNode(currentHoveredNode);
-                        }
-                    } else if (highlightMethod === "Spotlight+") {
-                        app.canvas.selectNode(currentHoveredNode);
-                        if (animation) {
-                            const originalX = app.canvas.ds.offset[0];
-                            const originalY = app.canvas.ds.offset[1];
-                            
-                            app.canvas.centerOnNode(currentHoveredNode);
+                    // --- 【修改5】拦截：如果是虚拟节点，取消画布平移操作并恢复原视角 ---
+                    if (currentHoveredNode.isWorkflowLoader) {
+                        if (initialCanvasState) {
+                            if (animation) {
+                                smoothPanTo(initialCanvasState.offset[0], initialCanvasState.offset[1], duration);
+                            } else {
+                                app.canvas.ds.offset[0] = initialCanvasState.offset[0];
+                                app.canvas.ds.offset[1] = initialCanvasState.offset[1];
+                            }
                             app.canvas.ds.scale = initialCanvasState.scale;
-                            
-                            const perfectTargetX = app.canvas.ds.offset[0];
-                            const perfectTargetY = app.canvas.ds.offset[1];
-                            
-                            app.canvas.ds.offset[0] = originalX;
-                            app.canvas.ds.offset[1] = originalY;
-                            
-                            smoothPanTo(perfectTargetX, perfectTargetY, duration);
-                        } else {
-                            app.canvas.centerOnNode(currentHoveredNode);
-                            app.canvas.ds.scale = initialCanvasState.scale;
+                            app.canvas.setDirty(true, true);
                         }
+                    } else {
+                        // 正常的画布跟踪平移逻辑
+                        if (highlightMethod === "WideView") {
+                            app.canvas.selectItems();
+                            if (animation) {
+                                app.canvas.fitViewToSelectionAnimated({duration: duration, padding: 0});
+                            } else {
+                                app.canvas.fitViewToSelectionAnimated({duration: 1, padding: 0});
+                            }
+                            app.canvas.selectNode(currentHoveredNode);
+                        } else if (highlightMethod === "Spotlight") {
+                            app.canvas.selectNode(currentHoveredNode);
+                            if (animation) {
+                                app.canvas.fitViewToSelectionAnimated({duration: duration, padding: 0});
+                            } else {
+                                app.canvas.centerOnNode(currentHoveredNode);
+                            }
+                        } else if (highlightMethod === "Spotlight+") {
+                            app.canvas.selectNode(currentHoveredNode);
+                            if (animation) {
+                                const originalX = app.canvas.ds.offset[0];
+                                const originalY = app.canvas.ds.offset[1];
+                                
+                                app.canvas.centerOnNode(currentHoveredNode);
+                                app.canvas.ds.scale = initialCanvasState.scale;
+                                
+                                const perfectTargetX = app.canvas.ds.offset[0];
+                                const perfectTargetY = app.canvas.ds.offset[1];
+                                
+                                app.canvas.ds.offset[0] = originalX;
+                                app.canvas.ds.offset[1] = originalY;
+                                
+                                smoothPanTo(perfectTargetX, perfectTargetY, duration);
+                            } else {
+                                app.canvas.centerOnNode(currentHoveredNode);
+                                app.canvas.ds.scale = initialCanvasState.scale;
+                            }
+                        }
+                        app.canvas.setDirty(true, true);
                     }
-                    app.canvas.setDirty(true, true);
                 }
             } else {
                 hideOverlay(e, true);
@@ -629,7 +669,19 @@ app.registerExtension({
                 });
 
                 if (targetIndex !== -1) {
-                    await handleUpload(e.dataTransfer.files, targetNodes[targetIndex]);
+                    const targetNode = targetNodes[targetIndex];
+                    
+                    // --- 【修改6】拦截：如果是虚拟节点，调用 ComfyUI 内部的工作流读取器 ---
+                    if (targetNode.isWorkflowLoader) {
+                        const file = e.dataTransfer.files[0];
+                        if (file) {
+                            // app.handleFile 会自动处理 png, webp, json 类型并导入工作流
+                            app.handleFile(file);
+                        }
+                    } else {
+                        await handleUpload(e.dataTransfer.files, targetNode);
+                    }
+                    // -----------------------------------------------------------
                 }
             }
             overlay.style.opacity = "0"; 
